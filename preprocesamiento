@@ -16,9 +16,6 @@ df.tail(20)
 
 # procesamiento de la columna "categories"
 
-print(df.categories.nunique())
-print(df.categories.value_counts().to_string())
-
 def cat_map(cat):
   cat = str(cat).lower().strip() # categorías sin espacios
   if any(word in cat for word in ["dystopias", "fiction", "novel", "tale", "chick lit", "stories", "humorous", "dystopias"] ):
