@@ -77,33 +77,33 @@ def cat_map(cat):
   return "Other"
 df["categories"] = df["categories"].apply(cat_map)
 
-#PRUEBA DE K NEAREST NEIGHBORS
-# ── Quedarse con 3 categorías ─────────────────────────────────────────────────
-cats_deseadas = ['Fiction', 'History', 'Science']  # cambia si quieres otras
+# PRUEBA DE K NEAREST NEIGHBORS
+# 1. Quedarse con 3 categorías
+cats_deseadas = ['Fiction', 'History', 'Science'] 
 df = df[df['categories'].isin(cats_deseadas)].reset_index(drop=True)
 
-# ── Extraer títulos antes de dropear columnas ─────────────────────────────────
+# 2. Extraer títulos antes de dropear columnas
 titles = df['title'].values
 
-# ── Features ──────────────────────────────────────────────────────────────────
+# 3. Features
 df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
 df = df.drop(columns=['title', 'authors'])
 
 features = ['published_year', 'average_rating', 'num_pages', 'ratings_count', 'author_book_cnt']
 X = StandardScaler().fit_transform(df[features].values)
 
-# ── Labels ────────────────────────────────────────────────────────────────────
+# 4. Labels
 le = LabelEncoder()
 Y  = le.fit_transform(df['categories'])
 book_labels = le.classes_
 
-# ── stratified_sample ─────────────────────────────────────────────────────────
+# 5. Muestra Estratificada
 def stratified_sample(X, Y, n_per_class=50, seed=42):
     rng = np.random.default_rng(seed)
     idx = []
     for c in np.unique(Y):
         pool = np.where(Y == c)[0]
-        idx.extend(rng.choice(pool, size=min(n_per_class, len(pool)), replace=False))
+        idx.extend(rng.choice(pool, size = min(n_per_class, len(pool)), replace = False))
     idx = np.array(idx)
     return X[idx], Y[idx]
 
@@ -118,7 +118,7 @@ def stratified_idx(Y, n_per_class=50, seed=42):
 bx, by = stratified_sample(X, Y)
 sample_titles = titles[stratified_idx(Y)]
 
-# ── select_queries ────────────────────────────────────────────────────────────
+# 6. Selección de queries
 rng = np.random.default_rng(42)
 n_classes       = len(book_labels)  # 3
 query_amount    = n_classes
@@ -129,29 +129,26 @@ def select_queries(Y, n_classes):
 
 PALETTE = ['#E63946', '#F4A261', '#2A9D8F']
 
-# ── Plot (solo coseno) ────────────────────────────────────────────────────────
+# 7. Plot de vecinos (distancia -> coseno)
 query_idx = select_queries(by, n_classes)
 
 fig, axes = plt.subplots(
-    query_amount, neighbor_amount + 1,
+    query_amount, neighbor_amount + 1, # se le añade 1 para no contarse a si mismo
     figsize=(16, query_amount * 2.5)
 )
 fig.patch.set_facecolor('#1a1a2e')
-fig.suptitle(
-    'Books Dataset — 3 categorías y sus 5 vecinos más cercanos\n'
-    'Distancia Coseno',
-    fontsize=13, color='white', fontweight='bold', y=1.01
-)
+fig.suptitle('Books Dataset - 3 categorías y sus 5 vecinos más cercanos\n' 
+    'Distancia Coseno', fontsize = 13, color = 'white', fontweight = 'bold', y = 1.01)
 
-nn = NearestNeighbors(n_neighbors=neighbor_amount + 1, metric='cosine', n_jobs=-1)
+nn = NearestNeighbors(n_neighbors = neighbor_amount + 1, metric = 'cosine', n_jobs = -1)
 nn.fit(bx)
 distances, indices = nn.kneighbors(bx[query_idx])
 distances = distances[:, 1:]
-indices   = indices[:, 1:]
+indices = indices[:, 1:]
 
 for row in range(query_amount):
     q_class = int(by[query_idx[row]])
-    color   = PALETTE[q_class % len(PALETTE)]
+    color = PALETTE[q_class % len(PALETTE)]
 
     for col in range(neighbor_amount + 1):
         ax = axes[row][col]
@@ -160,43 +157,32 @@ for row in range(query_amount):
         ax.set_yticks([])
 
         lw = 2.5 if col == 0 else 0.8
-        ec = color if col == 0 else '#555555'
+        ec = color if col == 0 else '#555555' # color dif. para cada categoria
         for sp in ax.spines.values():
             sp.set_color(ec)
             sp.set_linewidth(lw)
 
         feat_names = ['year', 'rating', 'pages', 'n_ratings', 'author_cnt']
-
-        if col == 0:
+        if col == 0: # primer columna = valor aleatorio / muestra
             q_feats = bx[query_idx[row]]
-            ax.barh(feat_names, q_feats,
-                    color=[color if v >= 0 else '#888888' for v in q_feats],
-                    height=0.6)
-            ax.axvline(0, color='white', linewidth=0.5, alpha=0.4)
-            ax.tick_params(axis='y', labelsize=6, colors='white', pad=1)
+            ax.barh(feat_names, q_feats, color=[color if v >= 0 else '#888888' for v in q_feats], height=0.6)
+            ax.axvline(0, color = 'white', linewidth = 0.5, alpha = 0.4)
+            ax.tick_params(axis = 'y', labelsize = 6, colors = 'black', pad = 1)
             short_title = (sample_titles[query_idx[row]][:22] + '…') if len(sample_titles[query_idx[row]]) > 22 else sample_titles[query_idx[row]]
-            ax.set_title(
-                f'CONSULTA\n{book_labels[q_class]}\n{short_title}',
-                fontsize=6, color=color, fontweight='bold', pad=2
-            )
+            ax.set_title(f'CONSULTA\n{book_labels[q_class]}\n{short_title}', fontsize = 6, color = color, fontweight = 'bold', pad = 2)
         else:
-            nb_idx       = indices[row, col - 1]
-            nb_class     = int(by[nb_idx])
-            nb_dist      = distances[row, col - 1]
-            match        = nb_class == q_class
-            nb_color_bar = '#00FF88' if match else '#FF4444'
+            nb_idx  = indices[row, col - 1]
+            nb_class = int(by[nb_idx])
+            nb_dist = distances[row, col - 1]
+            match_class = nb_class == q_class
+            nb_color_bar = '#00FF88' if match_class else '#FF4444' # si el vecino concuerda con la categoria de la muesta
 
-            ax.barh(feat_names, bx[nb_idx],
-                    color=[nb_color_bar if v >= 0 else '#888888' for v in bx[nb_idx]],
-                    height=0.6, alpha=0.85)
-            ax.axvline(0, color='white', linewidth=0.5, alpha=0.4)
-            ax.tick_params(axis='y', labelsize=6, colors='white', pad=1)
+            ax.barh(feat_names, bx[nb_idx], color = [nb_color_bar if v >= 0 else '#888888' for v in bx[nb_idx]], height = 0.6, alpha = 0.85)
+            ax.axvline(0, color = 'white', linewidth = 0.5, alpha = 0.4)
+            ax.tick_params(axis = 'y', labelsize = 6, colors = 'white', pad = 1)
 
             short_nb = (sample_titles[nb_idx][:20] + '…') if len(sample_titles[nb_idx]) > 20 else sample_titles[nb_idx]
-            ax.set_title(
-                f'{book_labels[nb_class]}\nd={nb_dist:.3f}\n{short_nb}',
-                fontsize=5.5, color=nb_color_bar, pad=2
-            )
+            ax.set_title(f'{book_labels[nb_class]}\nd={nb_dist:.3f}\n{short_nb}', fontsize=5.5, color=nb_color_bar, pad=2)
 
 plt.tight_layout(rect=[0, 0, 1, 0.995])
 plt.show()
