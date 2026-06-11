@@ -72,6 +72,25 @@ def cat_map(cat):
     return "Unknown"
   return "Other"
 
-df["categories"] = df["categories"].apply(cat_map)
-print(df["categories"].value_counts())
-print("Sin categorizar:", (df["categories"] == "Other").sum())
+# categorías que quedaron dentro de other
+print("============================================================")
+df_raw = pd.read_csv("data.csv")
+other_indices = df[df['categories'] == 'Other'].index
+print(df_raw.loc[other_indices, 'categories'].value_counts().to_string())
+
+
+# forma actual del df
+print(df.dtypes)
+print(df.shape)
+
+# encode y arreglar las columnas que no son numéricas
+df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
+df = df.drop(columns=['title', 'authors'])
+df = pd.get_dummies(df, columns=['categories'])
+
+df_scaled = StandardScaler().fit_transform(df)
+
+pca = PCA(n_components=2)
+pc = pca.fit_transform(df_scaled)
+pcdf = pd.DataFrame(data = pc, columns = ['principal component 1', 'principal component 2'])
+pcdf.head()
