@@ -81,22 +81,23 @@ def cat_map(cat):
   return "Other"
 df["categories"] = df["categories"].apply(cat_map)
 
-df_nn = df[df['categories'].isin(['Fiction', 'History', 'Science'])].reset_index(drop=True)
+#PRUEBA NEAREST NEIGHBORS
+df_nn = df[df['categories'].isin(['Fiction', 'History', 'Science'])].reset_index(drop=True) #seleccionamos 3 categorías comunes (también tomando en cuenta que se eligió k=3)
 
-knn_titles = df_nn['title'].values
+nn_titles = df_nn['title'].values 
 
 df_nn['author_book_cnt'] = df_nn['authors'].map(df_nn['authors'].value_counts())
 df_nn = df_nn.drop(columns=['title', 'authors'])
 
-features = ['published_year', 'average_rating', 'num_pages', 'ratings_count', 'author_book_cnt']
-df_nn[features] = df_nn[features].fillna(df_nn[features].median())
+features = ['published_year', 'average_rating', 'num_pages', 'ratings_count', 'author_book_cnt'] #seleccionamos features sobre las cuales hacer el análisis de Nearest neighbors
+df_nn[features] = df_nn[features].fillna(df_nn[features].median())#llenamos los NA con la mediana
 X = StandardScaler().fit_transform(df_nn[features].values)
 
 le = LabelEncoder()
 Y = le.fit_transform(df_nn['categories'])
-book_labels = le.classes_
+labels_libros = le.classes_
 
-# 5. Muestra Estratificada
+# Muestra Estratificada (para representar proporcionadamente a las clases)
 def stratified_sample(X, Y, n_per_class = 50, seed = 42):
     rng = np.random.default_rng(seed)
     idx = []
@@ -115,41 +116,41 @@ def stratified_idx(Y, n_per_class=50, seed=42):
     return np.array(idx)
 
 bx, by = stratified_sample(X, Y)
-sample_titles = knn_titles[stratified_idx(Y)] # muestreo estratificado para que las 3 muestras sean de clases diferentes
+sample_titles = nn_titles[stratified_idx(Y)] 
 
-# 6. Selección de queries
+# Selección de queries
 rng = np.random.default_rng(42)
-n_classes = len(book_labels)  # 3
-query_amount = n_classes
-neighbor_amount = 5
+n_classes = len(labels_libros)  
+cant_queries= n_classes
+vecinos = 5
 
 def select_queries(Y, n_classes):
     return np.array([rng.choice(np.where(Y == c)[0]) for c in range(n_classes)])
 
 PALETTE = ['#E63946', '#F4A261', '#2A9D8F']
 
-# 7. Plot de vecinos (distancia -> coseno)
+#Plot de vecinos (usando distancia coseno)
 query_idx = select_queries(by, n_classes)
 
 fig, axes = plt.subplots(
-    query_amount, neighbor_amount + 1, # se le añade 1 para no contarse a si mismo
-    figsize=(16, query_amount * 2.5)
+    cant_queries, vecinos + 1, # se le añade 1 para no contarse a si mismo
+    figsize=(16, cant_queries * 2.5)
 )
 fig.patch.set_facecolor('#1a1a2e')
 fig.suptitle('Books Dataset - 3 categorías y sus 5 vecinos más cercanos\n' 
     'Distancia Coseno', fontsize = 13, color = 'white', fontweight = 'bold', y = 1.01)
 
-nn = NearestNeighbors(n_neighbors = neighbor_amount + 1, metric = 'cosine', n_jobs = -1)
+nn = NearestNeighbors(n_neighbors = vecinos + 1, metric = 'cosine', n_jobs = -1)
 nn.fit(bx)
-distances, indices = nn.kneighbors(bx[query_idx])
-distances = distances[:, 1:]
+distancias, indices = nn.kneighbors(bx[query_idx])
+distancias = distancias[:, 1:]
 indices = indices[:, 1:]
 
-for row in range(query_amount):
+for row in range(cant_queries):
     q_class = int(by[query_idx[row]])
     color = PALETTE[q_class % len(PALETTE)]
 
-    for col in range(neighbor_amount + 1):
+    for col in range(vecinos + 1):
         ax = axes[row][col]
         ax.set_facecolor('#16213e')
         ax.set_xticks([])
@@ -168,20 +169,20 @@ for row in range(query_amount):
             ax.axvline(0, color = 'white', linewidth = 0.5, alpha = 0.4)
             ax.tick_params(axis = 'y', labelsize = 6, colors = 'black', pad = 1)
             short_title = (sample_titles[query_idx[row]][:22] + '…') if len(sample_titles[query_idx[row]]) > 22 else sample_titles[query_idx[row]]
-            ax.set_title(f'CONSULTA\n{book_labels[q_class]}\n{short_title}', fontsize = 6, color = color, fontweight = 'bold', pad = 2)
+            ax.set_title(f'CONSULTA\n{labels_libros[q_class]}\n{short_title}', fontsize = 6, color = color, fontweight = 'bold', pad = 2)
         else:
             nb_idx  = indices[row, col - 1]
             nb_class = int(by[nb_idx])
-            nb_dist = distances[row, col - 1]
+            nb_dist = distancias[row, col - 1]
             match_class = nb_class == q_class
-            nb_color_bar = '#00FF88' if match_class else '#FF4444' # si el vecino concuerda con la categoria de la muesta
+            nb_color_bar = '#00FF88' if match_class else '#FF4444' # si el vecino concuerda con la categoria de la muestra
 
             ax.barh(feat_names, bx[nb_idx], color = [nb_color_bar if v >= 0 else '#888888' for v in bx[nb_idx]], height = 0.6, alpha = 0.85)
             ax.axvline(0, color = 'white', linewidth = 0.5, alpha = 0.4)
             ax.tick_params(axis = 'y', labelsize = 6, colors = 'white', pad = 1)
 
             short_nb = (sample_titles[nb_idx][:20] + '…') if len(sample_titles[nb_idx]) > 20 else sample_titles[nb_idx]
-            ax.set_title(f'{book_labels[nb_class]}\nd={nb_dist:.3f}\n{short_nb}', fontsize=5.5, color=nb_color_bar, pad=2)
+            ax.set_title(f'{labels_libros[nb_class]}\nd={nb_dist:.3f}\n{short_nb}', fontsize=5.5, color=nb_color_bar, pad=2)
 
 script_dir = os.path.dirname(__file__)
 save_path = os.path.join(script_dir, 'my_plot.png')
