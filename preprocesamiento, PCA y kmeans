@@ -1,0 +1,230 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
+df = pd.read_csv("data.csv")
+
+# corregir valores NA y 
+df.title = np.where(df.subtitle.notnull(), df.title + '. ' + df.subtitle, df.title)
+df = df.drop(columns = ["isbn13", 'isbn10', 'thumbnail', 'description', 'subtitle'])
+df.ratings_count = df.ratings_count.fillna(df.ratings_count.mean())
+df.published_year = df.published_year.fillna(df.published_year.median())
+df.categories = df.categories.fillna("Unknown")
+df.authors = df.authors.fillna("Unnamed")
+df.title = df.title.fillna("Untitled")
+df.tail(20)
+
+# procesamiento de la columna categories
+
+def cat_map(cat):
+  cat = str(cat).lower().strip() # categorías sin espacios
+  if any(word in cat for word in ["dystopias", "fiction", "novel", "tale", "chick lit", "stories", "humorous", "dystopias"] ):
+    return "Fiction"
+  if any(word in cat for word in ["juvenile", "young adult", "children", "boys", "girl", "babytime", "baby"]):
+    return "Children, Juvenile and YA"
+  if any(word in cat for word in["biographie", "biography", "autobiography", "authors"]):
+    return "Biography and Autobiography"
+  if any(word in cat for word in["history", "napoleon", "crusade", "revolution", "war", "stone age", "holocaust", "concentration camp", "presidents", "vice-presidents", "apartheid", "slave insurrections", "ancient"]):
+    return "History"
+  if any(word in cat for word in["star trek", "science fiction", "sci-fi", "interplanetary", "life on other planets", "mars", "human-alien encounters"]):
+    return "Sci-Fi"
+  if any(word in cat for word in ["sea monster", "fantasy", "dragon", "elf","elves", "magic", "imaginary place", "fictitious", "imaginary war"]):
+    return "Fantasy"
+  if any(word in cat for word in ["detective", "mystery", "espionage", "crime", "criminal", "murder", "assassin", "true crime"]):
+    return "Mystery and Thriller"
+  if any(word in cat for word in ["good and evil", "philosophy", "existential", "empiricism", "essentialism", "confucian", "fundamentalism"]):
+    return "Philosophy"
+  if any(word in cat for word in ["clergy", "jews", "monasteries", "religion", "theology", "god", "death", "spiritual life", "meditation", "christian",  "saints", "buddhis", "catholics", "bible", "church", "psychoanalysis and religion"]):
+    return "Religion and Spirituality"
+  if any(word in cat for word in ["mentally ill", "psychology", "alienation", "self-help", "identity", "courage", "identity", "repression", "autonomy", "adjustment"]):
+    return "Psych and Self Help"
+  if any(word in cat for word in ["advertising", "business", "consumer", "economy", "finance", "market", "enterprise", "businessmen"]):
+    return "Business and Econ"
+  if any(word in cat for word in ["human cloning", "aeronautics", "", "zoology", "agriculture", "mathematics", "number", "heat", "physicist", "astronomers", "physics", "cosmology", "arithmetic", ]):
+    return "Science"
+  if any(word in cat for word in ["computer", "technology", "emgineering", "programming", "c("]):
+    return "Technology"
+  if any(word in cat for word in ["museum", "ballet", "art", "performing arts", "artist", "actor", "photography", "architecture", "drawing", "costume"]):
+    return "Art and Design"
+  if any(word in cat for word in ["heroes", "antiheroes", "essay", "romance", "epic literature", "literature", "drama","literary criticism", "literary collections", "greek mythology", "poetry", "poet", "poem", "plays", "authors", "novelist"]):
+    return "Literature"
+  if any(word in cat for word in ["hitchhiking", "new england", "los angeles", "travel", "geography", "czech republic", "africa", "england", "london", "amazon", "france", "boston", "great britain", "paris", "cities", "town", "mississipi", "india", "egypt", "canada", "japan", "arctic regions", "europe", "australia", "latin america", "china", "botswana", "cambridge", "kyoto", "canterbury", "dominican republic", "cornwall", "austria", "new york", "israel", "united states", "illinois", "azerbaijan", "ireland", "portugal", "bosnia and herzegovina"]):
+    return "Travel, countries, regions and continents"
+  if any(word in cat for word in ["cookbook", "cooking", "recipe", "brewing", "candy", "chocolate"]):
+    return "Food and recipes"
+  if any(word in cat for word in ["childbirth", "black death", "amyotrophic lateral sclerosis", "handicap", "brain", "body", "health", "disab", "cancer", "obesity","fitness", "medical"]):
+    return "Health"
+  if any(word in cat for word in ["social science", "political science", "law", "capitalism", ]):
+    return "Political and Social Sciences"
+  if any(word in cat for word in ["married", "divorce", "teenager", "family life", "family", "families", "men", "relationships", "man-woman relationships", "women", "grandmother", "brother", "sister", "friendship", "adolescence", "birthparents", "parenthood"]):
+    return "Family and Relationships"
+  if any(word in cat for word in ["humor", "comedy", "wit"]):
+    return "Comedy and Humor"
+  if any(word in cat for word in ["vampire", "horror", "exorcism", "cult", "demon"]):
+    return "Horror"
+  if any(word in cat for word in ["pet", "bird", "dog", "labrador", "animal", "nature", "garden", "cat", "caterpillars"]):
+    return "Nature, Plants and Animals"
+  if any(word in cat for word in ["antique","music", "comic", "graphic novel", "games", "crafts", "hobby", "comic books", "sports", "recreation"] ):
+    return "Entertainment and Graphic Novel"
+  if any(word in cat for word in ["study aids", "education", "adult education", "language", "reference", "foreign language", "adult education"]):
+    return "Education and Languages"
+  if any(word in cat for word in ["unknown"]):
+    return "Unknown"
+  return "Other"
+
+# categorías que quedaron dentro de other
+print("============================================================")
+df_raw = pd.read_csv("data.csv")
+other_indices = df[df['categories'] == 'Other'].index
+print(df_raw.loc[other_indices, 'categories'].value_counts().to_string())
+
+
+# forma actual del df
+print(df.dtypes)
+print(df.shape)
+
+# encode y arreglar las columnas que no son numéricas
+df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
+df = df.drop(columns=['title', 'authors'])
+df = pd.get_dummies(df, columns=['categories'])
+
+df_scaled = StandardScaler().fit_transform(df)
+
+pca = PCA(n_components=2)
+pc = pca.fit_transform(df_scaled)
+pcdf = pd.DataFrame(data = pc, columns = ['principal component 1', 'principal component 2'])
+pcdf.head()
+
+# silhouette para encontrar el número ideal de clústers
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+df = pd.read_csv("data.csv")
+
+df.title = np.where(df.subtitle.notnull(), df.title + '. ' + df.subtitle, df.title)
+df = df.drop(columns = ["isbn13", 'isbn10', 'thumbnail', 'description', 'subtitle'])
+df.ratings_count = df.ratings_count.fillna(df.ratings_count.mean())
+df.published_year = df.published_year.fillna(df.published_year.median())
+df.categories = df.categories.fillna("Unknown")
+df.authors = df.authors.fillna("Unnamed")
+df.title = df.title.fillna("Untitled")
+df.num_pages = df.num_pages.fillna(df.num_pages.median())
+df.average_rating = df.average_rating.fillna(df.average_rating.median())
+df.tail(20)
+
+# procesamiento de la columna "categories"
+
+def cat_map(cat):
+  cat = str(cat).lower().strip() # categorías sin espacios
+  if any(word in cat for word in ["dystopias", "fiction", "novel", "tale", "chick lit", "stories", "humorous", "dystopias"] ):
+    return "Fiction"
+  if any(word in cat for word in ["boarding school", "college", "high school", "bullying", "apprentices", "juvenile", "young adult", "children", "boys", "girl", "babytime", "baby"]):
+    return "Children, Juvenile and YA"
+  if any(word in cat for word in["biographie", "biography", "autobiography", "authors"]):
+    return "Biography and Autobiography"
+  if any(word in cat for word in[ "americans", "history", "beowulf", "aeneas", "consuls, roman", "albigenses", "frontier", "tobruk", "napoleon", "crusade", "revolution", "war", "stone age", "holocaust", "concentration camp", "presidents", "vice-presidents", "apartheid", "slave insurrections", "ancient"]):
+    return "History"
+  if any(word in cat for word in["star trek", "science fiction", "sci-fi", "interplanetary", "life on other planets", "mars", "human-alien encounters"]):
+    return "Sci-Fi"
+  if any(word in cat for word in ["sea monster", "fantasy", "dragon", "elf","elves", "magic", "imaginary place", "fictitious", "imaginary war"]):
+    return "Fantasy"
+  if any(word in cat for word in ["detective", "mystery", "espionage", "crime", "criminal", "murder", "assassin", "true crime", "bail bond", "intelligence service", "conspiracies", "cocaine", "gangs", "bombings", "defectors", "escapes", "criminals"]):
+    return "Mystery and Thriller"
+  if any(word in cat for word in ["good and evil", "philosophy", "existential", "empiricism", "essentialism", "confucian", "fundamentalism"]):
+    return "Philosophy"
+  if any(word in cat for word in ["angels","clergy", "jews", "mysticism", "dreams", "hallucinogenic","monasteries", "religion", "theology", "god", "death", "spiritual life", "meditation", "christian",  "saints", "buddhis", "catholics", "bible", "church", "psychoanalysis and religion"]):
+    return "Religion and Spirituality"
+  if any(word in cat for word in ["child analysis", "human behavior", "mentally ill", "adultery", "abused wives", "alcoholic", "anger", "aging", "conduct of life", "psychology", "alienation", "self-help", "identity", "courage", "identity", "repression", "autonomy", "adjustment", "emotional", "euthanasia", "mental", "amnesia", "autism", "cerebrovascular", "alzheimer", "reducing diets"]):
+    return "Psych and Self Help"
+  if any(word in cat for word in ["advertising", "business", "leadership", "selling", "banks and banking", "consumer", "economy", "finance", "market", "enterprise", "businessmen"]):
+    return "Business and Econ"
+  if any(word in cat for word in ["science", "mathematicians",  "inventions", "cosmetic", "kinetic", "electron", "human cloning", "aeronautics", "zoology", "agriculture", "mathematics", "number", "heat", "physicist", "astronomers", "physics", "cosmology", "arithmetic"]):
+    return "Science"
+  if any(word in cat for word in ["computer", "computer science", "technology", "emgineering", "programming", "c("]):
+    return "Technology"
+  if any(word in cat for word in ["feature film", "surealism", "film producers", "actresses", "design", "photographers", "acting", "cellists", "rock groups", "television", "motion picture","culture", " museum", "ballet", "art", "performing arts", "artist", "actor", "photography", "architecture", "drawing", "costume"]):
+    return "Art and Design"
+  if any(word in cat for word in ["allegories", "classic", "diaries","folklore","heroes", "antiheroes", "essay", "romance", "epic literature", "literature", "drama","literary criticism", "literary collections", "greek mythology", "poetry", "poet", "poem", "plays", "authors", "novelist"]):
+    return "Literature"
+  if any(word in cat for word in ["british", "belgians", "blacks", "explorers", "archaeological", "adirondack", "galicia", "germany", "czechoslovakia", "mississippi", "bosnia", "english", "amish","hitchhiking", "new england", "los angeles", "travel", "geography", "czech republic", "africa", "england", "london", "amazon", "france", "boston", "great britain", "paris", "cities", "town", "mississipi", "india", "egypt", "canada", "japan", "arctic regions", "europe", "australia", "latin america", "china", "botswana", "cambridge", "kyoto", "canterbury", "dominican republic", "cornwall", "austria", "new york", "israel", "united states", "illinois", "azerbaijan", "ireland", "portugal", "bosnia and herzegovina"]):
+    return "Travel, countries, regions and continents"
+  if any(word in cat for word in ["cookery","cookbook", "cooking", "recipe", "brewing", "candy", "chocolate"]):
+    return "Food and recipes"
+  if any(word in cat for word in ["accidents","blind","epidemics", "aircraft", "shipwreck", "disasters", "survival", "airplane crash",  "childbirth", "black death", "amyotrophic lateral sclerosis", "handicap", "brain", "body", "health", "disab", "cancer", "obesity","fitness", "medical"]):
+    return "Health"
+  if any(word in cat for word in ["social action","misoginy", "antisemitism", "democracy", "imperialism", "social science", "race", "gender", "political science", "law", "capitalism", ]):
+    return "Political and Social Sciences"
+  if any(word in cat for word in ["construction", "country life", "community", "bedtime", "boat", "house & home", "married", "love", "sex", "dating", "seduction", "divorce", "teenager", "family life", "family", "families", "men", "relationships", "man-woman relationships", "women", "grandmother", "brother", "sister", "friendship", "adolescence", "birthparents", "parenthood"]):
+    return "Family and Relationships"
+  if any(word in cat for word in ["humor", "comedy", "wit"]):
+    return "Comedy and Humor"
+  if any(word in cat for word in ["vampire", "horror", "exorcism", "cult", "demon"]):
+    return "Horror"
+  if any(word in cat for word in ["pigeons", "badgers", "farm", "pet", "bird", "dog", "labrador", "botanique", "animal", "nature", "garden", "cat", "caterpillars"]):
+    return "Nature, Plants and Animals"
+  if any(word in cat for word in ["antique","music", "comic", "graphic novel", "games", "crafts", "hobby", "comic books", "sports", "recreation"] ):
+    return "Entertainment and Graphic Novel"
+  if any(word in cat for word in ["study aids", "education", "adult education", "language", "reference", "foreign language", "adult education"]):
+    return "Education and Languages"
+  if any(word in cat for word in ["unknown"]):
+    return "Unknown"
+  return "Other"
+
+df["categories"] = df["categories"].apply(cat_map)
+print(df["categories"].value_counts())
+print("Sin categorizar:", (df["categories"] == "Other").sum())
+
+df[df['categories'] == 'Other'][['title', 'categories']].head(50)
+
+# categorías que quedaron dentro de other
+print("============================================================")
+df_raw = pd.read_csv("data.csv")
+other_indices = df[df['categories'] == 'Other'].index
+print(df_raw.loc[other_indices, 'categories'].value_counts().to_string())
+
+
+# forma actual del df
+print(df.dtypes)
+print(df.shape)
+
+# encode y arreglar las columnas que no son numéricas
+df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
+df = df.drop(columns=['title', 'authors'])
+df = pd.get_dummies(df, columns=['categories'])
+
+df_scaled = StandardScaler().fit_transform(df)
+
+pca = PCA(n_components=2)
+pc = pca.fit_transform(df_scaled)
+pcdf = pd.DataFrame(data = pc, columns = ['principal component 1', 'principal component 2'])
+pcdf.head()
+
+
+sse = {}
+for k in range(2, 26):
+    kmeans = KMeans(n_clusters=k, max_iter=1000).fit(df_scaled)
+    data_labels = kmeans.labels_
+    sse[k] = kmeans.inertia_
+
+plt.figure()
+plt.plot(list(sse.keys()), list(sse.values()))
+plt.xlabel("Número de clústers")
+plt.ylabel("Error cuadrático medio")
+plt.title("Elbow plot")
+plt.show()
+
+for cluster in range(2, 26):
+  kmeans = KMeans(n_clusters=cluster).fit(df_scaled)
+  data_labels = kmeans.labels_
+  sil_coeff = silhouette_score(df_scaled, data_labels, metric='euclidean')
+  print("Silhouette coefficient for k = {}: {}".format(cluster, sil_coeff))
