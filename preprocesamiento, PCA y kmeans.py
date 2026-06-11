@@ -5,8 +5,12 @@ import seaborn as sns
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from sklearn.decomposition import PCA
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+import os
 
-df = pd.read_csv("data.csv")
+df = pd.read_csv("C:/Users/peluc/Downloads/books_data/data.csv")
 
 # corregir valores NA y 
 df.title = np.where(df.subtitle.notnull(), df.title + '. ' + df.subtitle, df.title)
@@ -77,24 +81,19 @@ def cat_map(cat):
   return "Other"
 df["categories"] = df["categories"].apply(cat_map)
 
-# PRUEBA DE K NEAREST NEIGHBORS
-# 1. Quedarse con 3 categorías
-cats_deseadas = ['Fiction', 'History', 'Science'] 
-df = df[df['categories'].isin(cats_deseadas)].reset_index(drop=True)
+df_nn = df[df['categories'].isin(['Fiction', 'History', 'Science'])].reset_index(drop=True)
 
-# 2. Extraer títulos antes de dropear columnas
-titles = df['title'].values
+knn_titles = df_nn['title'].values
 
-# 3. Features
-df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
-df = df.drop(columns = ['title', 'authors'])
+df_nn['author_book_cnt'] = df_nn['authors'].map(df_nn['authors'].value_counts())
+df_nn = df_nn.drop(columns=['title', 'authors'])
 
 features = ['published_year', 'average_rating', 'num_pages', 'ratings_count', 'author_book_cnt']
-X = StandardScaler().fit_transform(df[features].values)
+df_nn[features] = df_nn[features].fillna(df_nn[features].median())
+X = StandardScaler().fit_transform(df_nn[features].values)
 
-# 4. Labels
 le = LabelEncoder()
-Y = le.fit_transform(df['categories'])
+Y = le.fit_transform(df_nn['categories'])
 book_labels = le.classes_
 
 # 5. Muestra Estratificada
@@ -116,7 +115,7 @@ def stratified_idx(Y, n_per_class=50, seed=42):
     return np.array(idx)
 
 bx, by = stratified_sample(X, Y)
-sample_titles = titles[stratified_idx(Y)] # muestreo estratificado para que las 3 muestras sean de clases diferentes
+sample_titles = knn_titles[stratified_idx(Y)] # muestreo estratificado para que las 3 muestras sean de clases diferentes
 
 # 6. Selección de queries
 rng = np.random.default_rng(42)
@@ -184,11 +183,12 @@ for row in range(query_amount):
             short_nb = (sample_titles[nb_idx][:20] + '…') if len(sample_titles[nb_idx]) > 20 else sample_titles[nb_idx]
             ax.set_title(f'{book_labels[nb_class]}\nd={nb_dist:.3f}\n{short_nb}', fontsize=5.5, color=nb_color_bar, pad=2)
 
-plt.tight_layout(rect=[0, 0, 1, 0.995])
-plt.show()
+script_dir = os.path.dirname(__file__)
+save_path = os.path.join(script_dir, 'my_plot.png')
+plt.savefig(save_path)
 # categorías que quedaron dentro de other
 print("============================================================")
-df_raw = pd.read_csv("data.csv")
+df_raw = pd.read_csv("C:/Users/peluc/Downloads/books_data/data.csv")
 other_indices = df[df['categories'] == 'Other'].index
 print(df_raw.loc[other_indices, 'categories'].value_counts().to_string())
 
@@ -201,7 +201,7 @@ print(df.shape)
 df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
 df = df.drop(columns=['title', 'authors'])
 df = pd.get_dummies(df, columns=['categories'])
-
+df = df.fillna(df.median(numeric_only=True))
 df_scaled = StandardScaler().fit_transform(df)
 
 pca = PCA(n_components=2)
@@ -221,7 +221,9 @@ plt.plot(list(sse.keys()), list(sse.values()))
 plt.xlabel("Número de clústers")
 plt.ylabel("Error cuadrático medio")
 plt.title("Elbow plot")
-plt.show()
+script_dir2 = os.path.dirname(__file__)
+save_path2 = os.path.join(script_dir2, 'my_plot.png')
+plt.savefig(save_path2)
 
 for cluster in range(2, 26):
   kmeans = KMeans(n_clusters=cluster).fit(df_scaled)
