@@ -3,6 +3,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+df = pd.read_csv("data.csv")
+df.title = np.where(df.subtitle.notnull(), df.title + '. ' + df.subtitle, df.title)
+df = df.drop(columns = ["isbn13", 'isbn10', 'thumbnail', 'description', 'subtitle'])
+df.ratings_count = df.ratings_count.fillna(df.ratings_count.mean())
+df.published_year = df.published_year.fillna(df.published_year.median())
+df.categories = df.categories.fillna("Unknown")
+df.authors = df.authors.fillna("Unnamed")
+df.title = df.title.fillna("Untitled")
+df.num_pages = df.num_pages.fillna(df.num_pages.median())
+df.average_rating = df.average_rating.fillna(df.average_rating.median())
+df.tail(20)
+
+
 """Títulos más comunes"""
 
 df["title"].value_counts().head(10)
