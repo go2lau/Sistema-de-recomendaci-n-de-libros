@@ -29,12 +29,10 @@ books=df.groupby("authors")["title"].count()
 
 df.head()
 
-
-# Filtrar por autor
-autor = 'Stephen King'  # Cambia aquí
+autor = 'Stephen King'  
 df_autor = df[df['authors'] == autor].copy()
 
-# Agrupar por año — promedio de rating y número de libros
+
 por_año = df_autor.groupby('published_year').agg(
     rating_promedio=('average_rating', 'mean'),
     num_libros=('title', 'count')
@@ -97,10 +95,3 @@ plt.scatter(df['average_rating'], df['num_pages'])
 # Este scatterplot nos indica que la mayor cantidad de ratings entre 4 y 5 suelen tener menos de 500 páginas, lo cual es indicativo de que es mucho más probable que un libro se termine de leer y se califique si su número de páginas se encuentra dentro de este rango.
 
 
-
-
-"""Libros con mejores ratings"""
-
-
-ratings_books=df.groupby("title")["average_rating"].mean().sort_values(ascending=False)
-ratings_books.head(10)
