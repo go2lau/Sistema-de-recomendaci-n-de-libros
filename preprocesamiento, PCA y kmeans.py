@@ -87,18 +87,18 @@ titles = df['title'].values
 
 # 3. Features
 df['author_book_cnt'] = df['authors'].map(df['authors'].value_counts())
-df = df.drop(columns=['title', 'authors'])
+df = df.drop(columns = ['title', 'authors'])
 
 features = ['published_year', 'average_rating', 'num_pages', 'ratings_count', 'author_book_cnt']
 X = StandardScaler().fit_transform(df[features].values)
 
 # 4. Labels
 le = LabelEncoder()
-Y  = le.fit_transform(df['categories'])
+Y = le.fit_transform(df['categories'])
 book_labels = le.classes_
 
 # 5. Muestra Estratificada
-def stratified_sample(X, Y, n_per_class=50, seed=42):
+def stratified_sample(X, Y, n_per_class = 50, seed = 42):
     rng = np.random.default_rng(seed)
     idx = []
     for c in np.unique(Y):
@@ -112,16 +112,16 @@ def stratified_idx(Y, n_per_class=50, seed=42):
     idx = []
     for c in np.unique(Y):
         pool = np.where(Y == c)[0]
-        idx.extend(rng.choice(pool, size=min(n_per_class, len(pool)), replace=False))
+        idx.extend(rng.choice(pool, size = min(n_per_class, len(pool)), replace = False))
     return np.array(idx)
 
 bx, by = stratified_sample(X, Y)
-sample_titles = titles[stratified_idx(Y)]
+sample_titles = titles[stratified_idx(Y)] # muestreo estratificado para que las 3 muestras sean de clases diferentes
 
 # 6. Selección de queries
 rng = np.random.default_rng(42)
-n_classes       = len(book_labels)  # 3
-query_amount    = n_classes
+n_classes = len(book_labels)  # 3
+query_amount = n_classes
 neighbor_amount = 5
 
 def select_queries(Y, n_classes):
@@ -157,7 +157,7 @@ for row in range(query_amount):
         ax.set_yticks([])
 
         lw = 2.5 if col == 0 else 0.8
-        ec = color if col == 0 else '#555555' # color dif. para cada categoria
+        ec = color if col == 0 else '#555555' # color diferente para cada categoria
         for sp in ax.spines.values():
             sp.set_color(ec)
             sp.set_linewidth(lw)
