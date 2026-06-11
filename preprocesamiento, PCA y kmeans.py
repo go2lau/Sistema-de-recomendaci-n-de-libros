@@ -116,5 +116,5 @@ plt.show()
 for cluster in range(2, 26):
   kmeans = KMeans(n_clusters=cluster).fit(df_scaled)
   data_labels = kmeans.labels_
-  sil_coeff = silhouette_score(df_scaled, data_labels, metric='euclidean')
+  sil_coeff = silhouette_score(df_scaled, data_labels, random_state = 42, metric='euclidean')
   print("Silhouette coefficient for k = {}: {}".format(cluster, sil_coeff))
